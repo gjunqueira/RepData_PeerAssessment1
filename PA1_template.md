@@ -1,107 +1,218 @@
-# Reproducible Research: Peer Assessment 1
+Reproducible Research: Peer Assessment 1
+==========================================
 
-  
 ## Loading and preprocessing the data
-
-Steps
-1. Load required libraries
-2. Check whether the CSV file exists and, if not, extract it from zip file
-3. Load it into R
-
-
 
 
 ```r
+# Firstly, load required libraries
+library(dplyr)
+library(lubridate)
+library(lattice)
+
+# Check whether the CSV file exists and, if not, extract it from zip file
 if( !file.exists("./activity.csv") ){
     unzip("./activity.zip")
 }
 
-d <- read.csv("activity.csv", colClasses = c("integer", "Date", "factor"))
+# Load it into R
+d <- read.csv("activity.csv", colClasses = c("integer", "Date", "integer"))
+
+# Function for consistent printing of numbers
+specify_decimal <- function(x, k=3){
+    format(round(x, k), nsmall=k)
+}
+
+# Function that verifies whether a day is weekday (0) or weekend (1)
+isWeekday <- function(d){
+   if(wday(d) > 1 && wday(d) < 7){
+       0
+   }else{
+       1
+   }
+}
 ```
 
 ## What is mean total number of steps taken per day?
-Steps:  
-1. Group the data frame by date
-2. Apply the mean for each group (date)
 
 
 ```r
-d_grpByDate <- group_by(d, date)
-daily_mean <- summarise(d_grpByDate, mean(steps, na.rm = TRUE))
-print.data.frame(daily_mean)
+# Calculate some daily stats of the steps taken
+daily_stats <- group_by(d, date) %>%
+               summarise(total=sum(steps, na.rm = TRUE),
+                         mean=mean(steps, na.rm = TRUE)
+)
+
+# Generate and plot a histogram of the total number of steps taken
+hist(daily_stats$total,
+     breaks = seq(0, 25000, length.out = 11),
+     ylim = c(0, 20),
+     main = "Histogram (not filled in)", 
+     xlab = "Steps taken", 
+     ylab = "Number of days"
+)
 ```
 
+![plot of chunk daily-stats1](figure/daily-stats1-1.png)
+
+```r
+# The mean of the total number os steps taken per day
+d_mean <- mean(daily_stats$total, na.rm = TRUE)
+
+# The median of the total number os steps taken per day
+d_median <- median(daily_stats$total, na.rm = TRUE)
 ```
-##          date mean(steps, na.rm = TRUE)
-## 1  2012-10-01                       NaN
-## 2  2012-10-02                 0.4375000
-## 3  2012-10-03                39.4166667
-## 4  2012-10-04                42.0694444
-## 5  2012-10-05                46.1597222
-## 6  2012-10-06                53.5416667
-## 7  2012-10-07                38.2465278
-## 8  2012-10-08                       NaN
-## 9  2012-10-09                44.4826389
-## 10 2012-10-10                34.3750000
-## 11 2012-10-11                35.7777778
-## 12 2012-10-12                60.3541667
-## 13 2012-10-13                43.1458333
-## 14 2012-10-14                52.4236111
-## 15 2012-10-15                35.2048611
-## 16 2012-10-16                52.3750000
-## 17 2012-10-17                46.7083333
-## 18 2012-10-18                34.9166667
-## 19 2012-10-19                41.0729167
-## 20 2012-10-20                36.0937500
-## 21 2012-10-21                30.6284722
-## 22 2012-10-22                46.7361111
-## 23 2012-10-23                30.9652778
-## 24 2012-10-24                29.0104167
-## 25 2012-10-25                 8.6527778
-## 26 2012-10-26                23.5347222
-## 27 2012-10-27                35.1354167
-## 28 2012-10-28                39.7847222
-## 29 2012-10-29                17.4236111
-## 30 2012-10-30                34.0937500
-## 31 2012-10-31                53.5208333
-## 32 2012-11-01                       NaN
-## 33 2012-11-02                36.8055556
-## 34 2012-11-03                36.7048611
-## 35 2012-11-04                       NaN
-## 36 2012-11-05                36.2465278
-## 37 2012-11-06                28.9375000
-## 38 2012-11-07                44.7326389
-## 39 2012-11-08                11.1770833
-## 40 2012-11-09                       NaN
-## 41 2012-11-10                       NaN
-## 42 2012-11-11                43.7777778
-## 43 2012-11-12                37.3784722
-## 44 2012-11-13                25.4722222
-## 45 2012-11-14                       NaN
-## 46 2012-11-15                 0.1423611
-## 47 2012-11-16                18.8923611
-## 48 2012-11-17                49.7881944
-## 49 2012-11-18                52.4652778
-## 50 2012-11-19                30.6979167
-## 51 2012-11-20                15.5277778
-## 52 2012-11-21                44.3993056
-## 53 2012-11-22                70.9270833
-## 54 2012-11-23                73.5902778
-## 55 2012-11-24                50.2708333
-## 56 2012-11-25                41.0902778
-## 57 2012-11-26                38.7569444
-## 58 2012-11-27                47.3819444
-## 59 2012-11-28                35.3576389
-## 60 2012-11-29                24.4687500
-## 61 2012-11-30                       NaN
-```
+
+Above we can see the histogram of the numbers of days by the total numbers
+of steps taken.  
+The main observations are:  
+
++ There are **18** days with total number of steps
+between **10000** and **12500** steps  
++ The average number of total steps taken is **9354.230**  
++ The median number of total steps taken is **10395.000**  
 
 ## What is the average daily activity pattern?
 
 
+```r
+# Firstly, we average the 5-minute interval across all days
+interval_stats <- group_by(d, interval) %>%
+                  summarise(total=sum(steps, na.rm = TRUE),
+                            mean=mean(steps, na.rm = TRUE)
+)
 
-## Imputing missing values
+# Then we plot
+with(interval_stats,
+     plot(interval, mean, type = "l",
+          main = "Daily activity pattern",
+          xlab = "5-minute interval identification",
+          ylab = "Average steps taken"
+     )
+)
+```
+
+![plot of chunk daily-activity1](figure/daily-activity1-1.png)
+
+```r
+# The 5-minute interval that contais the maximum number of steps
+maxInterval <- interval_stats$interval[which.max(interval_stats$mean)]
+```
+
+The time series above shows the daily activity pattern of the measure data.
+The main observations are:  
+
++ Most activity happens between the **500** and **2000** intervals.  
++ The interval **835** contains the maximum average number
+  of steps taken.  
+
+## Inputing missing values
 
 
+```r
+# Calculate and report the total number of missing values in the dataset
+
+# The number of NA's values are
+d_na <- sum(is.na(d$steps))
+
+# Create a new dataset that is equal to the original dataset
+# but with the missing data filled in.
+
+# Copy the dataset to a new object
+d_filled <- d
+
+# Lets replace the NA's by the interval average across all days
+
+# Get the vector of 'interval' with missing 'steps'
+intervals.na <- d_filled$interval[is.na(d_filled$steps)]
+
+# Create a function that searchs for interval indexes
+# on 'where' that are equal to 'x'
+findIntervalIndexes <- function(x, where = interval_stats){
+    which(where$interval == x)
+}
+    
+# Get corresponding indexes of 'interval' in 'interval_stats'
+indexes <- sapply(intervals.na, findIntervalIndexes)
+
+# Replace NA values with corresponding values from 'interval_stats'
+d_filled$steps[is.na(d_filled$steps)] <- interval_stats$mean[indexes]
+
+# Confirming we don't have NA's values anymore
+d_filled_na <- sum(is.na(d_filled$steps))
+```
+
+We can see that the original data set has **2304** missing entries.  
+After filling in the missing values with the respective interval average,
+there are **0** missing entries remaining.
+
+
+```r
+# Calculate the mean and median total number of steps taken per day.
+daily_filled_stats <- group_by(d_filled, date) %>%
+                      summarise(total=sum(steps, na.rm = FALSE),
+                                mean=mean(steps, na.rm = FALSE)
+)
+
+# Generate and plot a histogram of the total number of steps taken
+hist(daily_filled_stats$total,
+     breaks = seq(0, 25000, length.out = 11),
+     ylim = c(0, 30),
+     main = "Histogram (filled in)", 
+     xlab = "Steps taken", 
+     ylab = "Number of days"
+)
+```
+
+![plot of chunk daily-activity2](figure/daily-activity2-1.png)
+
+```r
+# The mean of the total number os steps taken per day
+d_filled_mean <- mean(daily_filled_stats$total, na.rm = FALSE)
+
+# The median of the total number os steps taken per day
+d_filled_median <- median(daily_filled_stats$total, na.rm = FALSE)
+```
+
+Above we can see the histogram of the numbers of days by the total numbers
+of steps taken. The main observations are:  
+
++ Now there are **26** days with total number of steps
+between **10000** and **12500** steps.  
++ The number of days with **0 to 2500** steps dropped from **11** to **3**.
++ The average number of total steps taken now is
+**10766.189**.  
++ The median number of total steps taken now is
+**10766.189**.  
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+
+```r
+# Create a new factor variable in the dataset with two levels
+# “weekday” and “weekend”
+
+# Fill the new factor variable with respective values
+d_filled$wd   <- factor(sapply(d_filled$date, isWeekday),
+                        levels = c(0, 1),
+                        labels = c("weekday", "weekend")
+)
+
+# We average the 5-minute interval 
+interval_filled_stats <- group_by(d_filled, wd, interval) %>%
+                         summarise(total=sum(steps, na.rm = FALSE),
+                                   mean=mean(steps, na.rm = FALSE)
+                         )
+
+# Make a panel plot containing a time series plot
+xyplot(mean ~ interval|wd,
+       data = interval_filled_stats,
+       type = "l",
+       layout=c(1,2),
+       main = "Daily activity pattern (filled)",
+       xlab = "5-minute interval identification",
+       ylab = "Average steps taken"
+)
+```
+
+![plot of chunk weekday](figure/weekday-1.png)
